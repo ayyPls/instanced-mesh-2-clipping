@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js InstancedMesh with DataTexture</title>
+    <style>
+        body {
+            margin: 0;
+        }
+    </style>
+</head>
+
+<body>
+
+    <script type="importmap">
+        {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+            "three/examples/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/",
+            "@three.ez/instanced-mesh":"https://cdn.jsdelivr.net/npm/@three.ez/instanced-mesh/index.js",
+            "bvh.js": "https://cdn.jsdelivr.net/npm/bvh.js/index.js",
+            "three-mesh-bvh/":"https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.8.2/src/"
+        }
+        }
+    </script>
+    <script defer type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"
+        import { InstancedMesh2, createTexture_float } from "@three.ez/instanced-mesh"
+
+
+        // Set up scene, camera, and renderer
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.localClippingEnabled = true
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+        const controls = new OrbitControls(camera, renderer.domElement);
+
+        camera.position.z = 5;
+
+        // Cube geometry
+        const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+
+        const instancedCount = 9
+
+        const material = new THREE.ShaderMaterial({
+            uniforms: {},
+            vertexShader: `
+            #define PHONG
+            varying vec3 vViewPosition;
+            #include <common>
+            #include <batching_pars_vertex>
+            #include <uv_pars_vertex>
+            #include <displacementmap_pars_vertex>
+            #include <envmap_pars_vertex>
+            #include <color_pars_vertex>
+            #include <fog_pars_vertex>
+            #include <normal_pars_vertex>
+            #include <morphtarget_pars_vertex>
+            #include <skinning_pars_vertex>
+            #include <shadowmap_pars_vertex>
+            #include <logdepthbuf_pars_vertex>
+            #include <clipping_planes_pars_vertex>
+            void main() {
+                #include <uv_vertex>
+                #include <color_vertex>
+                #include <morphcolor_vertex>
+                #include <batching_vertex>
+                #include <beginnormal_vertex>
+                #include <morphinstance_vertex>
+                #include <morphnormal_vertex>
+                #include <skinbase_vertex>
+                #include <skinnormal_vertex>
+                #include <defaultnormal_vertex>
+                #include <normal_vertex>
+                #include <begin_vertex>
+                #include <morphtarget_vertex>
+                #include <skinning_vertex>
+                #include <displacementmap_vertex>
+                #include <project_vertex>
+                #include <logdepthbuf_vertex>
+                #include <clipping_planes_vertex>
+                vViewPosition = - mvPosition.xyz;
+                #include <worldpos_vertex>
+                #include <envmap_vertex>
+                #include <shadowmap_vertex>
+                #include <fog_vertex>
+            }
+        `,
+            fragmentShader: `
+            #define PHONG
+            uniform vec3 diffuse;
+            uniform vec3 emissive;
+            uniform vec3 specular;
+            uniform float shininess;
+            uniform float opacity;
+            #include <common>
+            #include <packing>
+            #include <dithering_pars_fragment>
+            #include <color_pars_fragment>
+            #include <uv_pars_fragment>
+            #include <map_pars_fragment>
+            #include <alphamap_pars_fragment>
+            #include <alphatest_pars_fragment>
+            #include <alphahash_pars_fragment>
+            #include <aomap_pars_fragment>
+            #include <lightmap_pars_fragment>
+            #include <emissivemap_pars_fragment>
+            #include <envmap_common_pars_fragment>
+            #include <envmap_pars_fragment>
+            #include <fog_pars_fragment>
+            #include <bsdfs>
+            #include <lights_pars_begin>
+            #include <normal_pars_fragment>
+            #include <lights_phong_pars_fragment>
+            #include <shadowmap_pars_fragment>
+            #include <bumpmap_pars_fragment>
+            #include <normalmap_pars_fragment>
+            #include <specularmap_pars_fragment>
+            #include <logdepthbuf_pars_fragment>
+            #include <clipping_planes_pars_fragment>
+            void main() {
+                vec4 diffuseColor = vec4( diffuse, opacity );
+                #include <clipping_planes_fragment>
+                ReflectedLight reflectedLight = ReflectedLight( vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ) );
+                vec3 totalEmissiveRadiance = emissive;
+                #include <logdepthbuf_fragment>
+                #include <map_fragment>
+                #include <color_fragment>
+                #include <alphamap_fragment>
+                #include <alphatest_fragment>
+                #include <alphahash_fragment>
+                #include <specularmap_fragment>
+                #include <normal_fragment_begin>
+                #include <normal_fragment_maps>
+                #include <emissivemap_fragment>
+                #include <lights_phong_fragment>
+                #include <lights_fragment_begin>
+                #include <lights_fragment_maps>
+                #include <lights_fragment_end>
+                #include <aomap_fragment>
+                vec3 outgoingLight = reflectedLight.directDiffuse + reflectedLight.indirectDiffuse + reflectedLight.directSpecular + reflectedLight.indirectSpecular + totalEmissiveRadiance;
+                #include <envmap_fragment>
+                #include <opaque_fragment>
+                #include <tonemapping_fragment>
+                #include <colorspace_fragment>
+                #include <fog_fragment>
+                #include <premultiplied_alpha_fragment>
+                #include <dithering_fragment>
+            }`,
+            transparent: true,
+            clippingPlanes: [],
+            clipping: true
+
+        })
+        const cubeInstances = new InstancedMesh2(renderer, instancedCount, cubeGeometry, material);
+
+        cubeInstances.sortObjects = true;
+        (cubeInstances.material).uniforms = {}; // create only if it doesn't exist
+        (cubeInstances.material).uniforms.opacityTexture = { value: createTexture_float(cubeInstances.maxCount) };
+        const onBeforeCompile = cubeInstances.material.onBeforeCompile.bind(cubeInstances.material)
+        cubeInstances.material.onBeforeCompile = (p, r) => {
+            if (onBeforeCompile) onBeforeCompile(p, r)
+            p.uniforms.opacityTexture = (cubeInstances.material).uniforms.opacityTexture;
+            // pass instanceIndex to fragment shader
+            p.vertexShader = p.vertexShader.replace('#include <batching_pars_vertex>', '#include <batching_pars_vertex>\n flat varying uint vInstanceIndex;');
+            p.vertexShader = p.vertexShader.replace('#include <batching_vertex>', '#include <batching_vertex>\n vInstanceIndex = instanceIndex;');
+
+            // remove opacity from uniform and add opacityTexture and instanceIndex
+            p.fragmentShader = p.fragmentShader.replace('uniform float opacity;', 'uniform highp sampler2D opacityTexture;\n flat varying uint vInstanceIndex;');
+
+            // get opacity value from texture
+            p.fragmentShader = p.fragmentShader.replace('void main() {', 'void main() {\n float opacity = getFloatFromTexture(opacityTexture, vInstanceIndex);');
+        }
+        cubeInstances.updateInstances((obj, index) => {
+            obj.position.set(index % 3 - 1.5, Math.trunc(index / 3) - 1.5, 0)
+            obj.setUniform("opacityTexture", index * 0.1 + 0.1)
+        })
+        scene.background = new THREE.Color("white")
+        console.log(scene)
+        scene.add(cubeInstances)
+
+
+        // Render loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update()
+            renderer.render(scene, camera);
+
+        }
+        animate();
+
+        function addPlane() {
+            material.clippingPlanes = [new THREE.Plane(new THREE.Vector3(1, 0, 0), 0.5)]
+        }
+        window.addPlane = addPlane
+    </script>
+    <button style="position: absolute;" onclick="addPlane()">add plane</button>
+
+</body>
+
+</html>
